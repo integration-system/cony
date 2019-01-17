@@ -37,9 +37,10 @@ type Binding struct {
 	Args     amqp.Table
 }
 
-type mqDeleter interface {
+type owner interface {
 	deletePublisher(*Publisher)
 	deleteConsumer(*Consumer)
+	reportErr(error) bool
 }
 
 type mqChannel interface {
@@ -48,4 +49,7 @@ type mqChannel interface {
 	NotifyClose(chan *amqp.Error) chan *amqp.Error
 	Publish(string, string, bool, bool, amqp.Publishing) error
 	Qos(int, int, bool) error
+	Confirm(bool) error
+	NotifyReturn(chan amqp.Return) chan amqp.Return
+	NotifyPublish(confirm chan amqp.Confirmation) chan amqp.Confirmation
 }

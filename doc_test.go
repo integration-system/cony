@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/assembla/cony"
 	"github.com/streadway/amqp"
+	"gitlab.msp.mobi/go-lib/cony"
 )
 
 func Example() {

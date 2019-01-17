@@ -22,13 +22,14 @@ type publishMaybeErr struct {
 
 // Publisher hold definition for AMQP publishing
 type Publisher struct {
-	exchange string
-	key      string
-	tmpl     amqp.Publishing
-	pubChan  chan publishMaybeErr
-	stop     chan struct{}
-	dead     bool
-	m        sync.Mutex
+	exchange    string
+	key         string
+	tmpl        amqp.Publishing
+	pubChan     chan publishMaybeErr
+	stop        chan struct{}
+	confirmChan chan amqp.Confirmation
+	dead        bool
+	m           sync.Mutex
 }
 
 // Template will be used, input buffer will be added as Publishing.Body.
@@ -87,9 +88,18 @@ func (p *Publisher) Cancel() {
 	}
 }
 
-func (p *Publisher) serve(client mqDeleter, ch mqChannel) {
+func (p *Publisher) serve(client owner, ch mqChannel) {
 	chanErrs := make(chan *amqp.Error)
 	ch.NotifyClose(chanErrs)
+
+	if p.confirmChan != nil {
+		if err := ch.Confirm(false); err != nil {
+			client.reportErr(err)
+		} else {
+			p.confirmChan = ch.NotifyPublish(p.confirmChan)
+		}
+
+	}
 
 	for {
 		select {
@@ -135,5 +145,11 @@ func NewPublisher(exchange string, key string, opts ...PublisherOpt) *Publisher 
 func PublishingTemplate(t amqp.Publishing) PublisherOpt {
 	return func(p *Publisher) {
 		p.tmpl = t
+	}
+}
+
+func WithConfirmation(confirmChan chan amqp.Confirmation) PublisherOpt {
+	return func(p *Publisher) {
+		p.confirmChan = confirmChan
 	}
 }

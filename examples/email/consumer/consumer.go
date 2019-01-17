@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/smtp"
 
-	"github.com/assembla/cony"
+	"gitlab.msp.mobi/go-lib/cony"
 )
 
 var url = flag.String("url", "amqp://guest:guest@localhost/", "amqp url")

@@ -154,7 +154,11 @@ func (c *Client) Loop() bool {
 		// loop for blocking/deblocking
 		for {
 			select {
-			case err1 := <-chanErr:
+			case err1, ok := <-chanErr:
+				if !ok {
+					return
+				}
+
 				c.reportErr(err1)
 
 				if conn1 := c.conn.Load().(*amqp.Connection); conn1 != nil {
@@ -163,7 +167,10 @@ func (c *Client) Loop() bool {
 				}
 				// return from routine to launch reconnect process
 				return
-			case blocking := <-chanBlocking:
+			case blocking, ok := <-chanBlocking:
+				if !ok {
+					return
+				}
 				select {
 				case c.blocking <- blocking:
 				default:
@@ -173,14 +180,15 @@ func (c *Client) Loop() bool {
 
 	}()
 
-	ch, err := conn.Channel()
+	declarer, err := conn.Channel()
 	if c.reportErr(err) {
 		return true
 	}
 
-	for _, declare := range c.declarations {
-		c.reportErr(declare(ch))
+	for _, dec := range c.declarations {
+		c.reportErr(dec(declarer))
 	}
+	declarer.Close()
 
 	for cons := range c.consumers {
 		ch1, err := c.channel()

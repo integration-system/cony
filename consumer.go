@@ -45,9 +45,7 @@ func (c *Consumer) Cancel() {
 	defer c.m.Unlock()
 
 	if !c.dead {
-		close(c.deliveries)
 		close(c.stop)
-		c.dead = true
 	}
 }
 
@@ -62,7 +60,7 @@ func (c *Consumer) reportErr(err error) bool {
 	return false
 }
 
-func (c *Consumer) serve(client mqDeleter, ch mqChannel) {
+func (c *Consumer) serve(client owner, ch mqChannel) {
 	if c.reportErr(ch.Qos(c.qos, 0, false)) {
 		return
 	}
@@ -82,14 +80,19 @@ func (c *Consumer) serve(client mqDeleter, ch mqChannel) {
 	for {
 		select {
 		case <-c.stop:
-			client.deleteConsumer(c)
 			ch.Close()
+
+			client.deleteConsumer(c)
+			c.dead = true
+			close(c.deliveries)
 			return
 		case d, ok := <-deliveries: // deliveries will be closed once channel is closed (disconnected from network)
 			if !ok {
 				return
 			}
-			c.deliveries <- d
+			if !c.dead {
+				c.deliveries <- d
+			}
 		}
 	}
 }
