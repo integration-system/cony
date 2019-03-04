@@ -22,14 +22,15 @@ type publishMaybeErr struct {
 
 // Publisher hold definition for AMQP publishing
 type Publisher struct {
-	exchange    string
-	key         string
-	tmpl        amqp.Publishing
-	pubChan     chan publishMaybeErr
-	stop        chan struct{}
-	confirmChan chan amqp.Confirmation
-	dead        bool
-	m           sync.Mutex
+	exchange       string
+	key            string
+	tmpl           amqp.Publishing
+	pubChan        chan publishMaybeErr
+	stop           chan struct{}
+	confirmChan    chan amqp.Confirmation
+	dead           bool
+	m              sync.Mutex
+	lastChannelErr error
 }
 
 // Template will be used, input buffer will be added as Publishing.Body.
@@ -50,6 +51,10 @@ func (p *Publisher) Write(b []byte) (int, error) {
 // WARNING: this is blocking call, it will not return until connection is
 // available. The only way to stop it is to use Cancel() method.
 func (p *Publisher) PublishWithRoutingKey(pub amqp.Publishing, key string) error {
+	if p.lastChannelErr != nil {
+		return p.lastChannelErr
+	}
+
 	reqRepl := publishMaybeErr{
 		pub: make(chan amqp.Publishing, 2),
 		err: make(chan error, 2),
@@ -107,7 +112,8 @@ func (p *Publisher) serve(client owner, ch mqChannel) {
 			client.deletePublisher(p)
 			ch.Close()
 			return
-		case <-chanErrs:
+		case err := <-chanErrs:
+			p.lastChannelErr = err
 			return
 		case envelop := <-p.pubChan:
 			msg := <-envelop.pub
