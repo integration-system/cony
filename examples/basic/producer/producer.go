@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/integration-system/cony"
 	"github.com/streadway/amqp"
-	"gitlab.msp.mobi/go-lib/cony"
 	"time"
 )
 

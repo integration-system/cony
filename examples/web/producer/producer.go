@@ -7,8 +7,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/integration-system/cony"
 	"github.com/streadway/amqp"
-	"gitlab.msp.mobi/go-lib/cony"
 )
 
 var port = flag.Int("port", 3000, "listening port")

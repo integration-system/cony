@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"gitlab.msp.mobi/go-lib/cony"
+	"github.com/integration-system/cony"
 )
 
 var url = flag.String("url", "amqp://guest:guest@localhost/", "amqp url")

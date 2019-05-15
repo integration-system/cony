@@ -3,13 +3,17 @@ package cony
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"github.com/streadway/amqp"
 )
 
 // ErrPublisherDead indicates that publisher was canceled, could be returned
 // from Write() and Publish() methods
-var ErrPublisherDead = errors.New("Publisher is dead")
+var (
+	ErrPublisherDead = errors.New("Publisher is dead")
+	emptyErr         = atomErr{errors.New("noop")}
+)
 
 // PublisherOpt is a functional option type for Publisher
 type PublisherOpt func(*Publisher)
@@ -18,6 +22,10 @@ type publishMaybeErr struct {
 	pub chan amqp.Publishing
 	err chan error
 	key string
+}
+
+type atomErr struct {
+	err error
 }
 
 // Publisher hold definition for AMQP publishing
@@ -30,7 +38,7 @@ type Publisher struct {
 	confirmChan    chan amqp.Confirmation
 	dead           bool
 	m              sync.Mutex
-	lastChannelErr error
+	lastChannelErr atomic.Value
 }
 
 // Template will be used, input buffer will be added as Publishing.Body.
@@ -51,8 +59,8 @@ func (p *Publisher) Write(b []byte) (int, error) {
 // WARNING: this is blocking call, it will not return until connection is
 // available. The only way to stop it is to use Cancel() method.
 func (p *Publisher) PublishWithRoutingKey(pub amqp.Publishing, key string) error {
-	if p.lastChannelErr != nil {
-		return p.lastChannelErr
+	if err := p.lastChannelErr.Load(); err != emptyErr {
+		return err.(atomErr).err
 	}
 
 	reqRepl := publishMaybeErr{
@@ -94,6 +102,7 @@ func (p *Publisher) Cancel() {
 }
 
 func (p *Publisher) serve(client owner, ch mqChannel) {
+	p.lastChannelErr.Store(emptyErr)
 	chanErrs := make(chan *amqp.Error)
 	ch.NotifyClose(chanErrs)
 
@@ -113,7 +122,9 @@ func (p *Publisher) serve(client owner, ch mqChannel) {
 			ch.Close()
 			return
 		case err := <-chanErrs:
-			p.lastChannelErr = err
+			if err != nil {
+				p.lastChannelErr.Store(atomErr{err})
+			}
 			return
 		case envelop := <-p.pubChan:
 			msg := <-envelop.pub
