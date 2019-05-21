@@ -60,6 +60,9 @@ func (p *Publisher) Write(b []byte) (int, error) {
 // available. The only way to stop it is to use Cancel() method.
 func (p *Publisher) PublishWithRoutingKey(pub amqp.Publishing, key string) error {
 	if err := p.lastChannelErr.Load(); err != emptyErr {
+		if err == nil {
+			return errors.New("publisher is not initialized")
+		}
 		return err.(atomErr).err
 	}
 
