@@ -155,11 +155,9 @@ func (c *Client) Loop() bool {
 		for {
 			select {
 			case err1, ok := <-chanErr:
-				if !ok {
-					return
+				if ok {
+					c.reportErr(err1)
 				}
-
-				c.reportErr(err1)
 
 				if conn1 := c.conn.Load().(*amqp.Connection); conn1 != nil {
 					c.conn.Store((*amqp.Connection)(nil))
@@ -168,12 +166,11 @@ func (c *Client) Loop() bool {
 				// return from routine to launch reconnect process
 				return
 			case blocking, ok := <-chanBlocking:
-				if !ok {
-					return
-				}
-				select {
-				case c.blocking <- blocking:
-				default:
+				if ok {
+					select {
+					case c.blocking <- blocking:
+					default:
+					}
 				}
 			}
 		}
