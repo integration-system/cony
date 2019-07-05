@@ -123,7 +123,7 @@ func (c *Client) Ping(timeout time.Duration) error {
 
 	conn, err := amqp.DialConfig(c.addr, copied)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	_ = conn.Close()
