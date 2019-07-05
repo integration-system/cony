@@ -2,6 +2,7 @@ package cony
 
 import (
 	"errors"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -104,6 +105,30 @@ func (c *Client) Close() {
 		conn.Close()
 	}
 	c.conn.Store((*amqp.Connection)(nil))
+}
+
+func (c *Client) Ping(timeout time.Duration) error {
+	copied := c.config
+	copied.Dial = func(network, addr string) (net.Conn, error) {
+		conn, err := net.DialTimeout(network, addr, timeout)
+		if err != nil {
+			return nil, err
+		}
+		if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+			return nil, err
+		}
+
+		return conn, nil
+	}
+
+	conn, err := amqp.DialConfig(c.addr, copied)
+	if err != nil {
+		return nil
+	}
+
+	_ = conn.Close()
+
+	return nil
 }
 
 // Loop should be run as condition for `for` with receiving from (*Client).Errors()
