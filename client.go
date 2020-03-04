@@ -46,10 +46,22 @@ func (c *Client) Declare(d []Declaration) {
 	c.l.Lock()
 	defer c.l.Unlock()
 	c.declarations = append(c.declarations, d...)
+	c.declare(d)
+}
+
+func (c *Client) SetDeclaration(d []Declaration) {
+	c.l.Lock()
+	defer c.l.Unlock()
+	c.declarations = d
+	c.declare(d)
+}
+
+func (c *Client) declare(d []Declaration) {
 	if ch, err := c.channel(); err == nil {
 		for _, declare := range d {
-			declare(ch)
+			_ = declare(ch)
 		}
+		_ = ch.Close()
 	}
 }
 
