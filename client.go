@@ -49,7 +49,7 @@ func (c *Client) Declare(d []Declaration) {
 	c.declare(d)
 }
 
-func (c *Client) SetDeclaration(d []Declaration) {
+func (c *Client) SetDeclarations(d []Declaration) {
 	c.l.Lock()
 	defer c.l.Unlock()
 	c.declarations = d
@@ -59,7 +59,9 @@ func (c *Client) SetDeclaration(d []Declaration) {
 func (c *Client) declare(d []Declaration) {
 	if ch, err := c.channel(); err == nil {
 		for _, declare := range d {
-			_ = declare(ch)
+			if err := declare(ch); err != nil {
+				c.reportErr(err)
+			}
 		}
 		_ = ch.Close()
 	}
@@ -114,7 +116,7 @@ func (c *Client) Close() {
 	atomic.StoreInt32(&c.run, noRun) // c.run = false
 	conn, _ := c.conn.Load().(*amqp.Connection)
 	if conn != nil {
-		conn.Close()
+		_ = conn.Close()
 	}
 	c.conn.Store((*amqp.Connection)(nil))
 }
@@ -198,7 +200,7 @@ func (c *Client) Loop() bool {
 
 				if conn1 := c.conn.Load().(*amqp.Connection); conn1 != nil {
 					c.conn.Store((*amqp.Connection)(nil))
-					conn1.Close()
+					_ = conn1.Close()
 				}
 				// return from routine to launch reconnect process
 				return
@@ -222,7 +224,7 @@ func (c *Client) Loop() bool {
 	for _, dec := range c.declarations {
 		c.reportErr(dec(declarer))
 	}
-	declarer.Close()
+	_ = declarer.Close()
 
 	for cons := range c.consumers {
 		ch1, err := c.channel()
